@@ -40,7 +40,6 @@ class ObstacleAvoidanceNode(Node):
         self.create_subscription(LaserScan, "/scan", self.laser_scan_callback, qos_profile)
 
     def normalize_ranges_to_360(self, msg):
-        """Normaliza los datos del LIDAR para cubrir 360 grados."""
         angle_min = msg.angle_min
         angle_max = msg.angle_max
         angle_increment = msg.angle_increment
@@ -63,7 +62,6 @@ class ObstacleAvoidanceNode(Node):
 
     def laser_scan_callback(self, msg):
         global ANGLE
-        """Procesa los datos del LIDAR para detectar obstáculos."""
         message_range = self.normalize_ranges_to_360(msg)
         if not message_range:
             return
@@ -112,7 +110,6 @@ def processState(state, pub, laser):
     else:
         a = 0.0
 
-    # Obtener datos : izquierda, derecha, frente
     if state == 'ADVANCE':
         twist.linear.x = SPEED
         twist.angular.z = a
@@ -124,9 +121,6 @@ def processState(state, pub, laser):
         twist.angular.z = -TURN_SPEED
     elif state == 'IDLE':
         twist.linear.x = 0.0
-        twist.angular.z = 0.0
-    elif state == 'BACK':
-        twist.linear.x = -SPEED * 0.4
         twist.angular.z = 0.0
 
     pub.publish(twist)
@@ -144,15 +138,11 @@ def nextstate(state, laser):
             state = 'LEFT'
         else:
             state = 'RIGHT'
-
     elif state == 'LEFT':
         if dist['front_right'] > DISTANCE_THRESHOLD:
             state = 'IDLE'
     elif state == 'RIGHT':
         if dist['front_left'] > DISTANCE_THRESHOLD:
-            state = 'IDLE'
-    elif state == 'BACK':
-        if dist['front'] > DISTANCE_THRESHOLD:
             state = 'IDLE'
     return state
 
@@ -163,7 +153,7 @@ def main():
     laser_node = ObstacleAvoidanceNode('turtlebot_obstacle', qos_profile)
 
     # Configuración del publicador para controlar el robot
-    node = rclpy.create_node('teleop_keyboard')
+    node = rclpy.create_node('mover')
     pub = node.create_publisher(Twist, 'cmd_vel', 10)
 
     # Configuración del ejecutor multithread
@@ -171,14 +161,10 @@ def main():
     executor.add_node(laser_node)
     executor_thread = Thread(target=executor.spin, daemon=True)
     executor_thread.start()
-
-    # Configurar la cámara con su propio hilo
-
+    
     state = 'IDLE'
     try:
         while rclpy.ok():
-            # Obtener acción más reciente desde la cámara
-
             # Procesar el estado del robot
             processState(state, pub,laser_node)
             state = nextstate(state, laser_node)
